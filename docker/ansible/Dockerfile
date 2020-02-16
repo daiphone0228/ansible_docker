@@ -1,4 +1,5 @@
 FROM alpine:3.10.4
+LABEL maintainer="daiphone <daiphone0228@gmail.com>"
 
 # Metadata入れるかはちょっと考える
 
@@ -11,10 +12,16 @@ RUN apk --update --no-cache add \
         ca-certificates \
         git \
         openssh-client \
+        openssh-server \
         openssl \
+        openrc \
         python3\
         rsync \
         sshpass
+
+# start sshd
+RUN rc-update add sshd && rc-status
+RUN mkdir -p /run/openrc/ && touch /run/openrc/softlevel
 
 RUN apk --update add --virtual \
         .build-deps \
@@ -32,6 +39,11 @@ RUN apk --update add --virtual \
         .build-deps \
     && rm -rf /var/cache/apk/*
 
+# setting portforward
+RUN sed -i 's/^AllowTcpForwarding no/AllowTcpForwarding yes/g' /etc/ssh/sshd_config
+RUN sed -i 's/^GatewayPorts no/GatewayPorts yes/g' /etc/ssh/sshd_config
+RUN sed -i 's/^X11Forwarding no/X11Forwarding yes/g' /etc/ssh/sshd_config
+
 RUN mkdir -p /etc/ansible \
     && echo 'localhost' > /etc/ansible/hosts \
     && echo -e """\
@@ -41,12 +53,26 @@ Host *\n\
     UserKnownHostsFile=/dev/null\n\
 """ >> /etc/ssh/ssh_config
 
+# create user
+RUN adduser -D ansible
+# It will cause an ssh login error if user has no password
+RUN echo "ansible:ansible" | chpasswd
+# If need sudo
+RUN apk add --no-cache sudo
+RUN echo "ansible ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# create public key
+USER ansible
+RUN mkdir $HOME/.ssh
+RUN ssh-keygen -m PEM -t rsa -b 1024 -C "ansible@example.com" -N "" -f $HOME/.ssh/id_rsa
+RUN cat $HOME/.ssh/id_rsa.pub >> $HOME/.ssh/authorized_keys
 
-# EXPOSE 80
-# COPY entrypoint.sh /etc/entrypoint.sh
-# RUN chmod +x /etc/entrypoint.sh
-CMD ["/bin/sh"]
-# CMD [ "ansible-playbook", "--version" ]
+
+USER root
+RUN cp /home/ansible/.ssh/id_rsa $HOME/ansible.pem
+# RUN echo "ansible:ansible" | chpasswd
+
+CMD ["/sbin/init"]
+# CMD ["/etc/init.d/sshd", "start"]
+# CMD ["/etc/init.d/sshd", "start", "&&", "tail", "-f", "/dev/null"]
 
