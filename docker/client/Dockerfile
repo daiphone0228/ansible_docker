@@ -9,16 +9,16 @@ RUN yum update -y \
 
 # install basement
 RUN yum -y install \
-        sudo \
-        shadow-utils \
-        procps \
-        wget \
-        openssh-server \
-        openssh-clients \
-        which \
-        iproute \
-        e2fsprogs \
-        yum-utils
+    sudo \
+    shadow-utils \
+    procps \
+    wget \
+    openssh-server \
+    openssh-clients \
+    which \
+    iproute \
+    e2fsprogs \
+    yum-utils
 # RUN yum install -y \
 #         curl \
 #         git \
